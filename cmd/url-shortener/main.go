@@ -5,8 +5,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
+	"net/http"
 	"os"
 	"url-shortener/internal/config"
+	"url-shortener/internal/http-server/handlers/url/save"
 	mwLogger "url-shortener/internal/http-server/middleware/logger"
 	"url-shortener/internal/lib/sl"
 	"url-shortener/internal/storage/sqlite"
@@ -38,6 +40,25 @@ func main() {
 	router.Use(mwLogger.New(log))
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
+
+	router.Post("/url", save.New(log, storage))
+
+	log.Info("Starting server", slog.String("address", cfg.Address))
+
+	server := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTPServer.TimeOut,
+		WriteTimeout: cfg.HTTPServer.TimeOut,
+		IdleTimeout:  cfg.HTTPServer.IdleTimeOut,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
+		log.Error("Failed to start server")
+	}
+
+	log.Error("Server stopped")
+
 }
 
 func setupLogger(env string) *slog.Logger {
@@ -45,7 +66,6 @@ func setupLogger(env string) *slog.Logger {
 
 	switch env {
 	case envLocal:
-		//log = setupPrettySlog()
 		log = slog.New(
 			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	case envDev:
@@ -58,15 +78,3 @@ func setupLogger(env string) *slog.Logger {
 
 	return log
 }
-
-//func setupPrettySlog() *slog.Logger {
-//	opts := slogpretty.PrettyHandlerOptions{
-//		SlogOpts: *slog.HandlerOptions{
-//			Level: slog.LevelDebug,
-//		},
-//	}
-//
-//	handler := opts.NewPrettyHandler(os.Stdout)
-//
-//	return slog.New(handler)
-//}
