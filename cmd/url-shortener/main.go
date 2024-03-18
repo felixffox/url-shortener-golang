@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"url-shortener/internal/config"
+	"url-shortener/internal/http-server/handlers/redirect"
 	"url-shortener/internal/http-server/handlers/url/save"
 	mwLogger "url-shortener/internal/http-server/middleware/logger"
 	"url-shortener/internal/lib/sl"
@@ -24,7 +25,10 @@ func main() {
 	cfg := config.MustLoad()
 	fmt.Println(cfg)
 	log := setupLogger(cfg.Env)
-	log.Info("Starting URL-Shortener", slog.String("env", cfg.Env))
+	log.Info("Starting URL-Shortener",
+		slog.String("env", cfg.Env),
+		slog.String("version", "0.1"),
+	)
 	log.Debug("Debug messages are enabled")
 
 	storage, err := sqlite.New(cfg.StoragePath)
@@ -41,7 +45,16 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	router.Post("/url", save.New(log, storage))
+	router.Route("/url", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
+			cfg.HTTPServer.User: cfg.HTTPServer.Password,
+		}))
+
+		r.Post("/", save.New(log, storage))
+		r.Delete("/url/{alias}", redirect.New(log, storage)) // Пока не реализован
+	})
+
+	router.Get("/{alias}", redirect.New(log, storage))
 
 	log.Info("Starting server", slog.String("address", cfg.Address))
 
