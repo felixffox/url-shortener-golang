@@ -51,10 +51,11 @@ func main() {
 		}))
 
 		r.Post("/", save.New(log, storage))
-		r.Delete("/url/{alias}", redirect.New(log, storage)) // Пока не реализован
+		r.Delete("/url/{alias}", redirect.New(log, storage)) // TODO Пока не реализован
 	})
 
 	router.Get("/{alias}", redirect.New(log, storage))
+	// TODO сделать обычный гет списка объектов
 
 	log.Info("Starting server", slog.String("address", cfg.Address))
 
