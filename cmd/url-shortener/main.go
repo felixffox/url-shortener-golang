@@ -9,6 +9,8 @@ import (
 	"os"
 	"url-shortener/internal/config"
 	"url-shortener/internal/http-server/handlers/redirect"
+	"url-shortener/internal/http-server/handlers/url/delete"
+	"url-shortener/internal/http-server/handlers/url/list"
 	"url-shortener/internal/http-server/handlers/url/save"
 	mwLogger "url-shortener/internal/http-server/middleware/logger"
 	"url-shortener/internal/lib/sl"
@@ -51,11 +53,11 @@ func main() {
 		}))
 
 		r.Post("/", save.New(log, storage))
-		r.Delete("/url/{alias}", redirect.New(log, storage)) // TODO Пока не реализован
+		r.Delete("/{alias}", delete.DeleteURL(log, storage)) // TODO Пока не реализован
 	})
 
 	router.Get("/{alias}", redirect.New(log, storage))
-	// TODO сделать обычный гет списка объектов
+	router.Get("/", list.GetAll(log, storage))
 
 	log.Info("Starting server", slog.String("address", cfg.Address))
 

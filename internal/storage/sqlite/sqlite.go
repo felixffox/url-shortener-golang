@@ -22,14 +22,14 @@ func New(storagePath string) (*Storage, error) {
 
 	stmt, err := db.Prepare(`
 		CREATE TABLE IF NOT EXISTS url(
-			id INTEGER PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			alias TEXT NOT NULL UNIQUE,
 			url TEXT NOT NULL);
 		CREATE INDEX IF NOT EXISTS idx_alias ON url(alias)
 		`)
 
 	if err != nil {
-		return nil, fmt.Errorf("#{op}: #{err}")
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	_, err = stmt.Exec()
 
@@ -49,7 +49,7 @@ func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
 
 	res, err := stmt.Exec(urlToSave, alias)
 	if err != nil {
-		if sqliteErr, ok := err.(sqlite3.Error); ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+		if sqliteErr, ok := err.(sqlite3.Error); ok && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
 			return 0, fmt.Errorf("#{op}: #{storage.ErrURLExists}")
 		}
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -85,4 +85,55 @@ func (s *Storage) GetURL(alias string) (string, error) {
 	return resURL, nil
 }
 
-// func (s *Storage) DeleteURL(alias string) error {}
+func (s *Storage) GetAllURLs() ([]storage.URLInfo, error) {
+	const op = "storage.sqlite.GetAllURLs"
+
+	rows, err := s.db.Query("SELECT url, alias FROM url")
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+
+		}
+	}(rows)
+
+	var urls []storage.URLInfo
+
+	for rows.Next() {
+		var url, alias string
+		if err := rows.Scan(&url, &alias); err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+		urls = append(urls, storage.URLInfo{URL: url, Alias: alias})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return urls, nil
+}
+
+func (s *Storage) DeleteURL(alias string) error {
+	const op = "storage.sqlite.DeleteURL"
+
+	stmt, err := s.db.Prepare("DELETE FROM url WHERE alias = ?")
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		if err != nil {
+
+		}
+	}(stmt)
+
+	_, err = stmt.Exec(alias)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
