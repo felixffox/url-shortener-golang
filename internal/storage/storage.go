@@ -8,7 +8,7 @@ var (
 )
 
 type URLInfo struct {
-	ID    int64  `json:"id"`
+	ID    int64  `json:"id" gorm:"primaryKey; not null"`
 	URL   string `json:"url"`
 	Alias string `json:"alias"`
 }

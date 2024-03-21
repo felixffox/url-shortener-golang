@@ -22,7 +22,7 @@ func New(storagePath string) (*Storage, error) {
 
 	stmt, err := db.Prepare(`
 		CREATE TABLE IF NOT EXISTS url(
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id INTEGER PRIMARY KEY,
 			alias TEXT NOT NULL UNIQUE,
 			url TEXT NOT NULL);
 		CREATE INDEX IF NOT EXISTS idx_alias ON url(alias)
@@ -88,7 +88,7 @@ func (s *Storage) GetURL(alias string) (string, error) {
 func (s *Storage) GetAllURLs() ([]storage.URLInfo, error) {
 	const op = "storage.sqlite.GetAllURLs"
 
-	rows, err := s.db.Query("SELECT url, alias FROM url")
+	rows, err := s.db.Query("SELECT id, url, alias FROM url")
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -102,11 +102,12 @@ func (s *Storage) GetAllURLs() ([]storage.URLInfo, error) {
 	var urls []storage.URLInfo
 
 	for rows.Next() {
+		var id int64
 		var url, alias string
-		if err := rows.Scan(&url, &alias); err != nil {
+		if err := rows.Scan(&id, &url, &alias); err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
-		urls = append(urls, storage.URLInfo{URL: url, Alias: alias})
+		urls = append(urls, storage.URLInfo{ID: id, URL: url, Alias: alias})
 	}
 
 	if err := rows.Err(); err != nil {
